@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tic-Tac-Toe (PyScript Edition)</title>
+  
+  <!-- Polyfill for crypto.randomUUID if needed -->
+  <script>
+    if (!crypto.randomUUID) {
+      crypto.randomUUID = function() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      }
+    }
+  </script>
+  
+  <!-- Load PyScript (using a recent release) -->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+  <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="floating-container">
+        <!-- Line 1 -->
+        <span class="floating-icon" style="left: 10%; top: 10%; animation-delay: 0s;">X</span>
+        <span class="floating-icon" style="left: 35%; top: 10%; animation-delay: 1s;">O</span>
+        <span class="floating-icon" style="left: 60%; top: 10%; animation-delay: 2s;">X</span>
+        <span class="floating-icon" style="left: 85%; top: 10%; animation-delay: 3s;">O</span>
+        
+        <!-- Line 2 -->
+        <span class="floating-icon" style="left: 10%; top: 35%; animation-delay: 2s;">O</span>
+        <span class="floating-icon" style="left: 35%; top: 35%; animation-delay: 3s;">X</span>
+        <span class="floating-icon" style="left: 60%; top: 35%; animation-delay: 0s;">O</span>
+        <span class="floating-icon" style="left: 85%; top: 35%; animation-delay: 1s;">X</span>
+        
+        <!-- Line 3 -->
+        <span class="floating-icon" style="left: 10%; top: 60%; animation-delay: 1s;">X</span>
+        <span class="floating-icon" style="left: 35%; top: 60%; animation-delay: 2s;">O</span>
+        <span class="floating-icon" style="left: 60%; top: 60%; animation-delay: 3s;">X</span>
+        <span class="floating-icon" style="left: 85%; top: 60%; animation-delay: 0s;">O</span>
+        
+        <!-- Line 4 -->
+        <span class="floating-icon" style="left: 10%; top: 85%; animation-delay: 3s;">O</span>
+        <span class="floating-icon" style="left: 35%; top: 85%; animation-delay: 0s;">X</span>
+        <span class="floating-icon" style="left: 60%; top: 85%; animation-delay: 1s;">O</span>
+        <span class="floating-icon" style="left: 85%; top: 85%; animation-delay: 2s;">X</span>
+      </div>
+          
+  <h1>Tic-Tac-Toe</h1>
+  
+  <div id="controls">
+    <div class="toggle-group">
+      <span class="toggle-label">Game Mode:</span>
+      <div class="toggle-slider" id="mode-toggle">
+        <input type="radio" id="mode-single" name="mode" value="1" checked>
+        <label for="mode-single">Single-Player</label>
+        <input type="radio" id="mode-multi" name="mode" value="2">
+        <label for="mode-multi">Multiplayer</label>
+        <div class="toggle-indicator"></div>
+      </div>
+    </div>
+    
+    <div class="toggle-group">
+      <span class="toggle-label">Your Symbol:</span>
+      <div class="toggle-slider" id="symbol-toggle">
+        <input type="radio" id="symbol-x" name="symbol" value="X" checked>
+        <label for="symbol-x">X</label>
+        <input type="radio" id="symbol-o" name="symbol" value="O">
+        <label for="symbol-o">O</label>
+        <div class="toggle-indicator"></div>
+      </div>
+    </div>
+    
+    <button id="start-btn">Start Game</button>
+    <button id="reset-btn" style="background-color:red;">Reset Game</button>
+  </div>
+  
+  
+  <div id="game-board"></div>
+  <div id="status">Welcome! Please click "Start Game" to begin.</div>
+  
+  <!-- PyScript Code -->
+  <py-script>
+import js
+from pyodide.ffi import create_proxy
+
+# --------------------
+# Core Game Functions (unchanged)
+# --------------------
+def analyseboard(board):
+    cb = [[0,1,2], [3,4,5], [6,7,8],
+          [0,3,6], [1,4,7], [2,5,8],
+          [0,4,8], [2,4,6]]
+    for i in range(8):
+        if board[cb[i][0]] != 0 and board[cb[i][0]] == board[cb[i][1]] == board[cb[i][2]]:
+            return board[cb[i][0]]
+    return 0
+
+def minmax(board, player):
+    x = analyseboard(board)
+    if x != 0:
+        return x * player
+    pos = -1
+    value = -2
+    for i in range(9):
+        if board[i] == 0:
+            board[i] = player
+            score = -minmax(board, -player)
+            board[i] = 0
+            if score > value:
+                value = score
+                pos = i
+    if pos == -1:
+        return 0
+    return value
+
+def CompTurn(board, sym):
+    # Loop through all empty cells and choose the one with the best minimax score.
+    pos = -1
+    bestScore = -float('inf')
+    if sym == 'O':
+        for i in range(9):
+            if board[i] == 0:
+                board[i] = 1  # try move as O
+                score = -minmax(board, -1)
+                board[i] = 0
+                if score > bestScore:
+                    bestScore = score
+                    pos = i
+        if pos != -1:
+            board[pos] = 1
+    else:
+        for i in range(9):
+            if board[i] == 0:
+                board[i] = -1  # try move as X
+                score = -minmax(board, 1)
+                board[i] = 0
+                if score > bestScore:
+                    bestScore = score
+                    pos = i
+        if pos != -1:
+            board[pos] = -1
+
+def UserTurn(board, sym, pos):
+    # pos is 1-based index
+    if board[pos-1] != 0:
+        return False
+    board[pos-1] = -1 if sym == 'X' else 1
+    return True
+
+def User1Turn(board, pos):
+    # pos is 1-based index
+    if board[pos-1] != 0:
+        return False
+    board[pos-1] = -1
+    return True
+
+def User2Turn(board, pos):
+    # pos is 1-based index
+    if board[pos-1] != 0:
+        return False
+    board[pos-1] = 1
+    return True
+
+# --------------------
+# Global Game State for GUI
+# --------------------
+game_state = {
+    "board": [0]*9,
+    "mode": 1,
+    "symbol": "X",
+    "compSymbol": "O",
+    "turn": "player1",
+    "active": False,
+    "cell_proxies": [],  # For cell click handlers only
+    "button_proxies": []  # For button click handlers only
+}
+
+# --------------------
+# GUI Wrapper Functions
+# --------------------
+def console_log(*args):
+    """Helper function to log to console."""
+    js.console.log(*args)
+
+def handle_cell_click(e):
+    """Handle cell click events"""
+    idx = int(e.target.getAttribute("data-index"))
+    console_log(f"Cell clicked: {idx}, game active: {game_state['active']}")
+    
+    # Only process if game is active and cell is empty
+    if not game_state["active"] or game_state["board"][idx] != 0:
+        return
+    
+    board = game_state["board"]
+    mode = game_state["mode"]
+    symbol = game_state["symbol"]
+    
+    if mode == 1:  # Single-player
+        if UserTurn(board, symbol, idx+1):
+            update_board()
+            if not check_winner():
+                make_computer_move()
+    else:  # Multiplayer
+        if game_state["turn"] == "player1":
+            if User1Turn(board, idx+1):
+                game_state["turn"] = "player2"
+                update_board()
+                if not check_winner():
+                    js.document.getElementById("status").textContent = "Player 2's Turn (O)"
+        else:
+            if User2Turn(board, idx+1):
+                game_state["turn"] = "player1"
+                update_board()
+                if not check_winner():
+                    js.document.getElementById("status").textContent = "Player 1's Turn (X)"
+
+def update_board():
+    console_log("Updating board, game active:", game_state["active"])
+    board = game_state["board"]
+    board_element = js.document.getElementById("game-board")
+    board_element.innerHTML = ""
+        
+    # Clear old cell proxies before creating new ones
+    for proxy in game_state["cell_proxies"]:
+        proxy.destroy()
+    game_state["cell_proxies"] = []
+        
+    for i in range(9):
+        cell = js.document.createElement("div")
+        cell.classList.add("cell")
+        if not game_state["active"]:
+            cell.classList.add("disabled")
+            
+        # Set cell content
+        if board[i] == -1:
+            cell.textContent = "X"
+        elif board[i] == 1:
+            cell.textContent = "O"
+        
+        # Store index in the element
+        cell.setAttribute("data-index", str(i))
+        
+        # Create a persistent proxy for the event handler
+        cell_proxy = create_proxy(handle_cell_click)
+        game_state["cell_proxies"].append(cell_proxy)  # Store in cell_proxies
+        cell.addEventListener("click", cell_proxy)
+        
+        board_element.appendChild(cell)
+    
+
+
+def check_winner():
+    board = game_state["board"]
+    winner = analyseboard(board)
+    if winner == -1:
+        js.document.getElementById("status").textContent = "X Wins!"
+        return True
+    elif winner == 1:
+        js.document.getElementById("status").textContent = "O Wins!"
+        return True
+    elif 0 not in board:
+        js.document.getElementById("status").textContent = "It's a Draw!"
+        return True
+    return False
+
+def make_computer_move():
+    board = game_state["board"]
+    if 0 in board and not check_winner():
+        console_log("Computer making a move...")
+        CompTurn(board, game_state["compSymbol"])
+        update_board()
+        check_winner()
+
+def get_selected_value(group_id):
+    # This helper returns the value of the checked radio in the group.
+    radios = js.document.querySelectorAll(f"#{group_id} input[type='radio']")
+    for radio in radios:
+        if radio.checked:
+            return radio.value
+    return None
+
+def start_game(event=None):
+    console_log("Starting game...")
+    mode = int(get_selected_value("mode-toggle"))
+    symbol = get_selected_value("symbol-toggle")
+    console_log(f"Selected mode: {mode}, symbol: {symbol}")
+    
+    game_state["mode"] = mode
+    game_state["symbol"] = symbol
+    game_state["board"] = [0]*9
+    game_state["turn"] = "player1"
+    game_state["active"] = True  # Activate the game
+    
+    if mode == 1:
+        game_state["compSymbol"] = "O" if symbol == "X" else "X"
+        js.document.getElementById("status").textContent = f"Single-Player: You are {symbol}"
+        # If player chose O, let computer go first
+        if symbol == "O":
+            make_computer_move()
+    else:
+        js.document.getElementById("status").textContent = "Multiplayer: Player 1's Turn (X)"
+    
+    update_board()
+
+def reset_game(event=None):
+    console_log("Resetting game...")
+    game_state["board"] = [0]*9
+    game_state["turn"] = "player1"
+    game_state["active"] = False  # Deactivate the game
+    js.document.getElementById("status").textContent = "Board Reset! Click Start Game to begin."
+    update_board()
+
+start_game_proxy = create_proxy(start_game)
+reset_game_proxy = create_proxy(reset_game)
+    
+# Store them in button_proxies to prevent garbage collection
+game_state["button_proxies"] = [start_game_proxy, reset_game_proxy]
+    
+# Set up event listeners using proxies
+js.document.getElementById("start-btn").addEventListener("click", start_game_proxy)
+js.document.getElementById("reset-btn").addEventListener("click", reset_game_proxy)
+
+# Initialize an empty board but keep game inactive
+game_state["active"] = False
+update_board()
+  </py-script>
+</body>
+</html>
